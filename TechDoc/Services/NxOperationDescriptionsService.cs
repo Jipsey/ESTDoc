@@ -61,14 +61,17 @@ namespace TechDocNS.Services
             var operationsGroup = nxOperations.GroupBy(op => op.CUTTER_TAG);
             foreach (var operations in operationsGroup)
             {
-                foreach(var oper in operations){
-                    
+                foreach (var oper in operations)
+                {
+
                     //если коррекция включена, делаем проверку на правильную трассировку одного и того же инстр, входящего в массив
-                    if(arrForCheckToolCorrection.Contains( oper.CUTTER_TYPE) && oper.getCutComParams())
-                        try
-                          {cutComParambuilder(oper);} 
-                        catch(NXException e)
-                          {throw;}
+                    if (arrForCheckToolCorrection.Contains(oper.CUTTER_TYPE) && oper.getCutComParams())
+                    // try
+                    {
+                        cutComParambuilder(oper);
+                    }
+                    // catch(NXException e)
+                    //   {throw;}
                 }
 
                 var operation = operations.FirstOrDefault();
@@ -82,14 +85,14 @@ namespace TechDocNS.Services
                     list.Add(new[] { string.Empty, "-", string.Empty, chanellName, string.Empty, string.Empty, string.Empty });
                 }
 
-                if ( operation.CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_TURN ||
+                if (operation.CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_TURN ||
                      operation.CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_GROOVE ||
-                     operation.CUTTER_TYPE== UFConstants.UF_CUTTER_TYPE_THREAD)
+                     operation.CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_THREAD)
                 {
                     toolMap = operation.getToolListRegister(); // инициализируем мапу если выполняются условия
                 }
 
-                    
+
                 // получим описание операции в зависипости от типа инструмента
                 switch (operation.CUTTER_TYPE)
                 {
@@ -98,7 +101,7 @@ namespace TechDocNS.Services
                     case UFConstants.UF_CUTTER_TYPE_T:
                     //----    
                     case 15:        //добавил условие для Switch тип режущего инструмента == 15
-                    //----
+                        //----
                         list.AddRange(GetDescription_UF_CUTTER_TYPE_MILL(operations)); break;
 
                     case UFConstants.UF_CUTTER_TYPE_DRILL:
@@ -119,7 +122,7 @@ namespace TechDocNS.Services
                     case UFConstants.UF_CUTTER_TYPE_SOLID:
                         list.AddRange(GetDescription_UF_CUTTER_TYPE_SOLID(operations)); break;
                 }
-                
+
                 // для всех инструментов
                 list.AddRange(GetAdditionalOperationDescriptions(operation));
 
@@ -130,7 +133,8 @@ namespace TechDocNS.Services
         }
 
 
-        private void cutComParambuilder(NxOperation oper){
+        private void cutComParambuilder(NxOperation oper)
+        {
             if (cutComParams == null)
                 cutComParams = new Dictionary<Tag, bool>();
 
@@ -145,15 +149,16 @@ namespace TechDocNS.Services
             }
         }
         // метод сравнивающий парметры трассировки при включенной, должен выполняться при включённой коррекции
-        private void cutComEquals(NxOperation oper) {
-            
+        private void cutComEquals(NxOperation oper)
+        {
+
             if (cutComParams[oper.CUTTER_TAG] != oper.UF_PARAM_TL_CutcomOutputContactPoint)
                 throw new Exception(string.Format(
-                    "--> Инструмент \"{0}\" <-- при включенной коррекции \n" +
+                    "--> Инструмент T{0} \"{1}\" <-- при включенной коррекции \n" +
                     "выбраны разные режимы трассировки, что может привести к зарезу " +
                     "------------------------------------------------------------------\n" +
                     "справка: для корректной работы приложения проверьте \n" +
-                    "соответствие вывода данных контакта/трассировки",oper.Tool.Name));
+                    "соответствие вывода данных контакта/трассировки", oper.UF_PARAM_TL_NUMBER, oper.Tool.Name));
         }
 
         private decimal RadiansToDegrees(double radians)
@@ -236,26 +241,26 @@ namespace TechDocNS.Services
             var list = new List<string[]>();
             var operation = operations.FirstOrDefault();
             var str = string.Empty;
-                        
+
             if (operation == null) return list;
 
-            
-                List<string> descriptionMap = toolMap[operation.CUTTER_TAG]; // достаём  из мапы по ключу значение и записываем его в лист 
-            
-            
+
+            List<string> descriptionMap = toolMap[operation.CUTTER_TAG]; // достаём  из мапы по ключу значение и записываем его в лист 
+
+
             var s = string.Format("Угол профиля={0:F2}<$s>", RadiansToDegrees(operation.UF_PARAM_TL_LEFT_ANG));
-            
+
             list.Add(new[] { "Т", "-", operation.ToolNumber, operation.UF_PARAM_TL_DESCRIPTION, s, string.Empty, string.Empty });
 
             s = operation.UF_PARAM_TL_INSERT_POSITION == 1 ? "Позиция вставки - верхняя сторона" : "Позиция вставки - нижняя сторона";
             str = operation.UF_PARAM_TL_MaxReach != -1 ? string.Format("Максимальная глубина {0}мм", operation.UF_PARAM_TL_MaxReach) : string.Empty;
-            
+
             list.Add(new[] { string.Empty, "-", string.Empty, s, str, string.Empty, string.Empty });
 
             //------------------------------
             s = operation.UF_PARAM_TL_FlipToolAroundHolder == false ? "Стандартный" : "Обратный";
-            
-            list.Add(new[] { string.Empty, "-", string.Empty, s , string.Empty, string.Empty, string.Empty });
+
+            list.Add(new[] { string.Empty, "-", string.Empty, s, string.Empty, string.Empty, string.Empty });
             //------------------------------
 
             return list;
@@ -269,17 +274,17 @@ namespace TechDocNS.Services
             var str1 = string.Empty;
             var s2 = string.Empty;
             List<string> descriptionMap = null;
-            
+
             if (operation == null) return list;
-            
-               descriptionMap = toolMap[operation.CUTTER_TAG]; // достаём  из мапы по ключу значение и записываем его в лист 
-                        
+
+            descriptionMap = toolMap[operation.CUTTER_TAG]; // достаём  из мапы по ключу значение и записываем его в лист 
+
             var s = string.Format("Ширина={0:F2} мм.", operation.UF_PARAM_TL_INSERT_WIDTH);
             list.Add(new[] { "Т", "-", operation.ToolNumber, operation.UF_PARAM_TL_DESCRIPTION, s, string.Empty, string.Empty });
-            
-            if(operation.UF_PARAM_TL_RADIUS == -1)
-                s2 = string.Format("Rверш.={0:F2} мм.", operation.UF_PARAM_TL_INSERT_WIDTH/2);
-            else  
+
+            if (operation.UF_PARAM_TL_RADIUS == -1)
+                s2 = string.Format("Rверш.={0:F2} мм.", operation.UF_PARAM_TL_INSERT_WIDTH / 2);
+            else
                 s2 = string.Format("Rверш.={0:F2} мм.", operation.UF_PARAM_TL_RADIUS); //UF_PARAM_TL_LEFT_COR_RAD //UF_PARAM_TL_NOSE_RAD
 
             s = operation.UF_PARAM_TL_INSERT_POSITION == 1 ? "Позиция вcтавки - верхняя сторона" : "Позиция вcтавки - нижняя сторона";
@@ -290,7 +295,7 @@ namespace TechDocNS.Services
 
             str1 = operation.UF_PARAM_TL_MaxReach != -1 ? string.Format("Зона досягаемости {0} мм", operation.UF_PARAM_TL_MaxReach) : string.Empty;
 
-            list.Add(new[] { string.Empty, "-", string.Empty, s , str1, string.Empty, string.Empty });
+            list.Add(new[] { string.Empty, "-", string.Empty, s, str1, string.Empty, string.Empty });
             //------------------------------
 
             foreach (string decsrReg in descriptionMap)
@@ -298,19 +303,19 @@ namespace TechDocNS.Services
                 list.Add(new[] { string.Empty, "-", string.Empty, decsrReg, string.Empty, string.Empty, string.Empty });
             }
             //------------------------------
-            
+
             return list;
         }
 
         private IEnumerable<string[]> GetDescription_UF_CUTTER_TYPE_TURN(IGrouping<Tag, NxOperation> operations)
-        {   
+        {
             var list = new List<string[]>();
             var operation = operations.FirstOrDefault();
             if (operation == null) return list;
             List<string> descriptionMap = null;
-            
+
             descriptionMap = toolMap[operation.CUTTER_TAG]; // достаём  из мапы по ключу значение и записываем его в лист 
-            
+
             var s = "";
             var str = string.Empty;
 
@@ -330,8 +335,8 @@ namespace TechDocNS.Services
             s = string.IsNullOrEmpty(operation.UF_PARAM_TL_INSERTTYPE_STR) ? string.Empty : operation.UF_PARAM_TL_INSERTTYPE_STR;
 
 
-            str = operation.UF_PARAM_TL_MaxReach != -1 ? string.Format("Зона досягаемости {0} мм", operation.UF_PARAM_TL_MaxReach): string.Empty;
-            
+            str = operation.UF_PARAM_TL_MaxReach != -1 ? string.Format("Зона досягаемости {0} мм", operation.UF_PARAM_TL_MaxReach) : string.Empty;
+
             list.Add(new[] { string.Empty, "-", string.Empty, s, str, string.Empty, string.Empty });
 
             s = operation.UF_PARAM_TL_INSERT_POSITION == 1 ? "Позиция вcтавки - верхняя сторона" : "Позиция вcтавки - нижняя сторона";
@@ -340,7 +345,7 @@ namespace TechDocNS.Services
             //------------------------------            
             foreach (string decsrReg in descriptionMap)
             {
-                list.Add(new[] { string.Empty, "-", string.Empty, decsrReg, string.Empty, string.Empty, string.Empty }); 
+                list.Add(new[] { string.Empty, "-", string.Empty, decsrReg, string.Empty, string.Empty, string.Empty });
             }
             //------------------------------
             return list;
@@ -392,17 +397,20 @@ namespace TechDocNS.Services
             var strings = ParseDescriptionString(s);
             list.AddRange(strings.Select(s1 => new[] { "", "-", string.Empty, s1, string.Empty, string.Empty, string.Empty }));
 
-
-            if (operation.getCutComParams())
+            foreach (var op in operations)
             {
-                str = "Работает с корректором, ";
-                str += operation.UF_PARAM_TL_CutcomOutputContactPoint ? "ввести в таблицу диаметр/радиус инструмента"
-                    : "ввести в таблицу диаметр/радиус = 0";
+                if (op.getCutComParams())
+                {
+                    str = "Работает с корректором, ";
+                    str += op.UF_PARAM_TL_CutcomOutputContactPoint ? "ввести в таблицу диаметр/радиус инструмента"
+                        : "ввести в таблицу диаметр/радиус = 0";
 
-              list.Add(new[] { string.Empty, "-", string.Empty, str, string.Empty, string.Empty, string.Empty });
+                    list.Add(new[] { string.Empty, "-", string.Empty, str, string.Empty, string.Empty, string.Empty });
+                    break;
+                }
             }
             //-----------------------------------------------------
-          
+
             return list;
 
         }
@@ -488,16 +496,18 @@ namespace TechDocNS.Services
             var strings = ParseDescriptionString(s);
             list.AddRange(strings.Select(s1 => new[] { string.Empty, "-", string.Empty, s1, string.Empty, string.Empty, string.Empty }));
 
-            //-----------------------------------------------------
 
-           if (operation.getCutComParams()) 
+            foreach (var op in operations)
             {
-                str = "Работает с корректором, ";
-                str += operation.UF_PARAM_TL_CutcomOutputContactPoint ? "ввести в таблицу диаметр/радиус инструмента"
-                    : "ввести в таблицу диаметр/радиус = 0";
-            list.Add(new[] { string.Empty, "-", string.Empty, str, string.Empty, string.Empty, string.Empty });            
-           }
-            
+                if (op.getCutComParams())
+                {
+                    str = "Работает с корректором, ";
+                    str += op.UF_PARAM_TL_CutcomOutputContactPoint ? "ввести в таблицу диаметр/радиус инструмента"
+                        : "ввести в таблицу диаметр/радиус = 0";
+                    list.Add(new[] { string.Empty, "-", string.Empty, str, string.Empty, string.Empty, string.Empty });
+                    break;
+                }
+            }
             return list;
         }
 
@@ -512,7 +522,7 @@ namespace TechDocNS.Services
             {
                 var indexOflastSpace = s1.LastIndexOf(";", StringComparison.Ordinal);
                 ret.Add(s1.Substring(0, indexOflastSpace + 1));
-                if (s1.Length > indexOflastSpace + 1) 
+                if (s1.Length > indexOflastSpace + 1)
                     s1 = s1.Substring(indexOflastSpace + 1).Trim();
             }
             ret.Add(s1);

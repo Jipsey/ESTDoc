@@ -141,16 +141,16 @@ namespace TechDocNS.Model
             {
                 var s = (string)GetAttribute("ИМЯ_КОМПАНИИ");
                 //return !string.IsNullOrEmpty(s) ? s : "АО \"Диаконт\" ";
-                return " ЛенТурбоРемонт " ; 
+                return " ЛенТурбоРемонт ";
             }
             set { SetAttribute("ИМЯ_КОМПАНИИ", value); }
         }
-        
+
         public void GetAttributeFromFiles()
         {
             var filePath = NxSession.ROOT_PATH_TXT;
             if (string.IsNullOrEmpty(filePath)) throw new Exception("Не удалось найти директорию с текстовыми файлами настройки!");
-            
+
             ListMaterial = GetListFromFiles(Directory.GetFiles(filePath, "материал*.txt", SearchOption.AllDirectories));
             ListRazrab = GetListFromFiles(Directory.GetFiles(filePath, "разработал.txt", SearchOption.AllDirectories));
             ListProv = GetListFromFiles(Directory.GetFiles(filePath, "проверил.txt", SearchOption.AllDirectories));

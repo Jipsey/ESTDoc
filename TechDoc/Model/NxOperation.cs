@@ -30,7 +30,7 @@ namespace TechDocNS.Model
         public string UF_PARAM_TL_INSERTTYPE_STR;
         public string UF_TYPE_OPERATION_NAME; // тип операции
         public List<int> RequiredParams;
-//        public Tag OperationTag;
+        //        public Tag OperationTag;
         public UFSession ufs;
         public int OPERATION_TYPE;
         public Tag CUTTER_TAG;
@@ -60,11 +60,16 @@ namespace TechDocNS.Model
         public bool UF_PARAM_TL_CutComCorrection; // перменная хранящся булево значение о включённой/выключенной коррекции
         public bool UF_PARAM_TL_CutcomOutputContactPoint;
         public bool UF_PARAM_TL_FlipToolAroundHolder;
-        public int UF_MCS_NUMBER;       
+        public int UF_MCS_NUMBER;
         public double UF_PARAM_TL_MaxReach;   // значение зоны досягаемости для токарных расточных иснтрументов
         public int UF_TL_CutcomRegister; // номер корректора
         public static Dictionary<Tag, List<string>> toolListRegister; // мапа для хранения параметров коррекции инструмента 
-        
+        public bool CutComflag;
+        public bool CutComHoleMillingFlag;
+        public NXOpen.CAM.NcmPlanarBuilder.CutcomTypes cutCom;
+        public NXOpen.CAM.NcmHoleMachining.CutcomTypes cutComHoleMilling;
+
+
         private string _toolNumber;
         public string ToolNumber
         {
@@ -86,15 +91,15 @@ namespace TechDocNS.Model
 
             //String n = Operation.Name;
             System.Type t = Operation.GetType();
-            
+
             UF_TYPE_OPERATION_NAME = t.Name;// if SurfaceContour
 
             _operationGroup = nxOperationGroup;
-            
+
             ufs = NxSession.Ufs;
-            if (ufs == null) 
+            if (ufs == null)
                 throw new Exception("Не удалось получить сессию пользовательских функций NX.");
- 
+
             GetParams();
             // GetCutterTool(); <--перенёс в метод GetParams()
             GetCutterInsertTypeStr();
@@ -128,20 +133,20 @@ namespace TechDocNS.Model
             ufs.Oper.AskCutterGroup(Operation.Tag, out CUTTER_TAG);
             ufs.Cutter.AskTypeAndSubtype(CUTTER_TAG, out CUTTER_TYPE, out CUTTER_SUBTYPE);
             if (CUTTER_TAG == Tag.Null) throw new Exception("Не удалось получить инструмент из операции!");
-            
- 
+
+
             Tool = NXObjectManager.Get(CUTTER_TAG) as Tool;
             if (Tool == null) throw new Exception("Не удалось получить инструмент из операции!");
 
             //----------------определяем тип инструмента----------------------------
             Tool.Types tt; //Tool.Types.MillForm;
             Tool.Subtypes ts;  // Tool.Subtypes.Undefined;
-           
+
             Tool.GetTypeAndSubtype(out tt, out ts);
             if (tt == Tool.Types.MillForm)
-               {
-                 UF_PARAM_TL_DIAMETER = determinateDiameterOfUserTool();
-               }
+            {
+                UF_PARAM_TL_DIAMETER = determinateDiameterOfUserTool();
+            }
             //--------------------------------------------
 
             CUTTER_ATTRIBUTES = Tool.GetUserAttributes();
@@ -157,7 +162,7 @@ namespace TechDocNS.Model
             //-----------------------
 #endif
             UF_PARAM_TL_DESCRIPTION = enc(GetStrParams(UFConstants.UF_PARAM_TL_DESCRIPTION));
-            UF_PARAM_TL_TEXT = enc (GetStrParams(UFConstants.UF_PARAM_TL_TEXT));     
+            UF_PARAM_TL_TEXT = enc(GetStrParams(UFConstants.UF_PARAM_TL_TEXT));
             UF_PARAM_TL_HOLDER_DESCRIPTION = enc(GetStrParams(UFConstants.UF_PARAM_TL_HOLDER_DESCRIPTION));//GetEncodeStrParams(UFConstants.UF_PARAM_TL_HOLDER_DESCRIPTION);
             UF_PARAM_TL_NUM_FLUTES = GetIntParams(UFConstants.UF_PARAM_TL_NUM_FLUTES);
             UF_PARAM_CUTCOM_REGISTER_NUM = GetIntParams(UFConstants.UF_PARAM_CUTCOM_REGISTER_NUM);
@@ -180,7 +185,7 @@ namespace TechDocNS.Model
             UF_PARAM_TL_PITCH = GetDblParams(UFConstants.UF_PARAM_TL_PITCH);
             UF_PARAM_TL_NOSE_RAD = GetDblParams(UFConstants.UF_PARAM_TL_NOSE_RAD);
             UF_PARAM_TL_INSERT_WIDTH = GetDblParams(UFConstants.UF_PARAM_TL_INSERT_WIDTH);
-            UF_PARAM_TL_LEFT_ANG = GetDblParams(UFConstants.UF_PARAM_TL_LEFT_ANG);          
+            UF_PARAM_TL_LEFT_ANG = GetDblParams(UFConstants.UF_PARAM_TL_LEFT_ANG);
             UF_PARAM_TL_INSERT_POSITION = GetIntParams(UFConstants.UF_PARAM_TL_INSERT_POSITION);
             UF_PARAM_TL_COR1_RAD = GetDblParams(UFConstants.UF_PARAM_TL_COR1_RAD);
             UF_PARAM_TL_TIP_ANG = GetDblParams(UFConstants.UF_PARAM_TL_TIP_ANG);
@@ -195,7 +200,7 @@ namespace TechDocNS.Model
 
             GetCutterTool();
 
-            if (CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_TURN || CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_GROOVE 
+            if (CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_TURN || CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_GROOVE
                 || CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_THREAD)
             {
                 if (CUTTER_TYPE != UFConstants.UF_CUTTER_TYPE_THREAD)
@@ -204,16 +209,23 @@ namespace TechDocNS.Model
                 }
                 buildToolListRegister();
                 UF_PARAM_TL_MaxReach = GetTL_MaxReach(); // получаем значение зоны досягаемости 
-                
+
             }
         }
         // получаем параметры коррекции
-        public bool getCutComParams(){
+        public bool getCutComParams()
+        {
 
             NXOpen.CAM.VolumeBased25DMillingOperationBuilder operationBuilder;
-            NXOpen.CAM.NcmPlanarBuilder.CutcomTypes cutCom;
-            NXOpen.CAM.NcmHoleMachining.CutcomTypes cutComHoleMilling;
             NXOpen.CAM.CylinderMillingBuilder cylinderMillingBuilder;
+
+            // создаём метку до которой будем откатываться
+            NXOpen.Session.UndoMarkId mark1 = NxSession.Session.SetUndoMark(Session.MarkVisibility.Invisible, "временная метка");
+
+            if (CutComflag) // проверка, понят ли флаг
+                return cutCom.Equals(NXOpen.CAM.NcmPlanarBuilder.CutcomTypes.None) ? false : true;
+            if (CutComHoleMillingFlag)
+                return cutComHoleMilling.Equals(NXOpen.CAM.NcmHoleMachining.CutcomTypes.None) ? false : true;
 
             try
             {
@@ -221,27 +233,39 @@ namespace TechDocNS.Model
                 cutCom = operationBuilder.NonCuttingBuilder.CutcomType;
                 UF_PARAM_TL_CutcomOutputContactPoint = operationBuilder.NonCuttingBuilder.CutcomOutputContactPoint;
                 operationBuilder.Destroy();
-                return  cutCom.Equals(NXOpen.CAM.NcmPlanarBuilder.CutcomTypes.None) ? false : true;
+                CutComflag = true; // поднимаем флаг, при удачном выполнении блока
+                return cutCom.Equals(NXOpen.CAM.NcmPlanarBuilder.CutcomTypes.None) ? false : true;
             }
-            catch {
+            catch
+            {
                 try
                 {
                     cylinderMillingBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateCylinderMillingBuilder(Operation);
                     cutComHoleMilling = cylinderMillingBuilder.NonCuttingBuilder.CutcomType;
                     UF_PARAM_TL_CutcomOutputContactPoint = cylinderMillingBuilder.NonCuttingBuilder.CutcomOutputContactPoint;
                     cylinderMillingBuilder.Destroy();
+                    CutComHoleMillingFlag = true; // поднимаем флаг, при удачном выполнении блока
                     return cutComHoleMilling.Equals(NXOpen.CAM.NcmHoleMachining.CutcomTypes.None) ? false : true;
                 }
-                catch { 
-                    return false; 
-                   }
+                catch
+                {
+                    return false;
+                }
             }
 
+            finally
+            {
+
+                NxSession.Session.UndoToMark(mark1, null);      // откатываемся к метке "mark1"
+                NxSession.Session.DeleteUndoMark(mark1, null);  // удаляет метчку отката
+
+            }
         }
-        
+
 
         //создаём коллекцию номеров регистра коррекции
-        private void buildToolListRegister() {
+        private void buildToolListRegister()
+        {
 
             if (toolListRegister == null)
             {
@@ -252,7 +276,7 @@ namespace TechDocNS.Model
             StringBuilder sb = new StringBuilder(30);
 
             string s = UF_PARAM_TL_FlipToolAroundHolder == false ? "стандартный" : "обратный";
-                      //UF_MCS_NUMBER <= 1 ? " левый" : " правый");
+            //UF_MCS_NUMBER <= 1 ? " левый" : " правый");
 
             object[] toolParams = { UF_TL_CutcomRegister, s, UF_PARAM_TL_TURN_HOLDER_ANGLE.ToString() };
 
@@ -314,7 +338,8 @@ namespace TechDocNS.Model
             return round;
         }
 
-        public double determinateDiameterOfUserTool() {
+        public double determinateDiameterOfUserTool()
+        {
 
             if (Operation == null)
                 return 0.0;
@@ -337,56 +362,59 @@ namespace TechDocNS.Model
             millFormToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateMillFormToolBuilder(tTool);
 
             NXObject nxobj = millFormToolBuilder.MillingTrackpointBuilder.GetTrackPoint(0);
-            millFormToolBuilder.MillingTrackpointBuilder.GetTrackPoint(nxobj, out nameTrPoint, out DefType, out doubleDiameter, out doubleDistance, out zOffset, 
+            millFormToolBuilder.MillingTrackpointBuilder.GetTrackPoint(nxobj, out nameTrPoint, out DefType, out doubleDiameter, out doubleDistance, out zOffset,
                 out zOffsetUsed, out adjust, out adjustUsed,
                 out cutcom, out cutcomUsed);
-            
+
             millFormToolBuilder.Destroy();
 
-            return Math.Round( doubleDiameter,2);
+            return Math.Round(doubleDiameter, 2);
         }
 #if DEBUG
 
         public void makeMap()
         {
-                    Dictionary<int, string> map = new Dictionary<int,string>();
-                    Dictionary<double, string> doubleValueMap = new Dictionary<double, string>();
-                    Dictionary<double, string> doubleMap = new Dictionary<double, string>(); 
-                    Dictionary<int, string> logicalMap = new Dictionary<int,string>();
+            Dictionary<int, string> map = new Dictionary<int, string>();
+            Dictionary<double, string> doubleValueMap = new Dictionary<double, string>();
+            Dictionary<double, string> doubleMap = new Dictionary<double, string>();
+            Dictionary<int, string> logicalMap = new Dictionary<int, string>();
 
-                 int i;
-                 int cnt =0;
-                 int cnt2 = 0;
-                 int cnt3 = 0;
-                 double doubleValue;
-                 bool logical;
+            int i;
+            int cnt = 0;
+            int cnt2 = 0;
+            int cnt3 = 0;
+            double doubleValue;
+            bool logical;
 
-                 foreach (int element in RequiredParams)
-                 {
-                     UFParam.IndexAttribute attribute;
-                     ufs.Param.AskParamAttributes(element, out attribute);
-                     string name = attribute.name;
-                     UFParam.Type type = attribute.type;
-                     
-                     if (attribute.type == UFParam.Type.TypeInt){
-                         
-                         ufs.Param.AskIntValue(Operation.Tag, element, out i);
-                         map.Add(cnt++, " " + element + "  " + enc(name) + " TYPE IS " + type + " " + i);
-                     }
-                     if(attribute.type == UFParam.Type.TypeDouble){
-                         ufs.Param.AskDoubleValue(Operation.Tag, element, out doubleValue);
-                         doubleValueMap.Add(cnt2++, " " + element + "  " + enc(name) + " TYPE IS " + type + " " + doubleValue);
-                         }
-                     if (attribute.type == UFParam.Type.TypeLogical) {
-                         ufs.Param.AskLogicalValue(Operation.Tag,element, out logical);
-                         logicalMap.Add(cnt3++, " " + element + "  " + enc(name) + " TYPE IS " + type + " " + logical);
-                     }
-                 
-                 }
-                     
-                     writeFile(map);
-                     writeDoubleValue(doubleValueMap);
-                     writeBooleanValue(logicalMap);         
+            foreach (int element in RequiredParams)
+            {
+                UFParam.IndexAttribute attribute;
+                ufs.Param.AskParamAttributes(element, out attribute);
+                string name = attribute.name;
+                UFParam.Type type = attribute.type;
+
+                if (attribute.type == UFParam.Type.TypeInt)
+                {
+
+                    ufs.Param.AskIntValue(Operation.Tag, element, out i);
+                    map.Add(cnt++, " " + element + "  " + enc(name) + " TYPE IS " + type + " " + i);
+                }
+                if (attribute.type == UFParam.Type.TypeDouble)
+                {
+                    ufs.Param.AskDoubleValue(Operation.Tag, element, out doubleValue);
+                    doubleValueMap.Add(cnt2++, " " + element + "  " + enc(name) + " TYPE IS " + type + " " + doubleValue);
+                }
+                if (attribute.type == UFParam.Type.TypeLogical)
+                {
+                    ufs.Param.AskLogicalValue(Operation.Tag, element, out logical);
+                    logicalMap.Add(cnt3++, " " + element + "  " + enc(name) + " TYPE IS " + type + " " + logical);
+                }
+
+            }
+
+            writeFile(map);
+            writeDoubleValue(doubleValueMap);
+            writeBooleanValue(logicalMap);
         }
 
         public void writeFile(Dictionary<int, string> map)
@@ -428,37 +456,38 @@ namespace TechDocNS.Model
 #endif
 
 
-        public string determinateNameOfTool() {
+        public string determinateNameOfTool()
+        {
 
             string nameTool = null;
             Tag tempCutterTag;
             Tool tempTool;
 
-            if (Operation == null) 
-                          return null;
+            if (Operation == null)
+                return null;
             //создаем инструмент, затем пропускаем его через метод enc()
             ufs.Oper.AskCutterGroup(Operation.Tag, out tempCutterTag);
             tempTool = NXObjectManager.Get(tempCutterTag) as Tool;
             nameTool = enc(tempTool.Name);
-            
+
             return nameTool;
         }
 
         public double determinateDiameterOfTool(string toolName)
         {
-                Part refPart = NxSession.Part;
-                double diam;
-            
-                // поиск инструмента в магазине и создание параметров для создания операции
-                NXOpen.CAM.Tool tempTool = (NXOpen.CAM.Tool)refPart.CAMSetup.CAMGroupCollection.FindObject(toolName);
-                
-                NXOpen.CAM.MillingToolBuilder millingToolBuilder;
-                millingToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateMillToolBuilder(tempTool);
-                diam = millingToolBuilder.TlDiameterBuilder.Value;
-                    
-                millingToolBuilder.Destroy();
+            Part refPart = NxSession.Part;
+            double diam;
 
-                return diam;            
+            // поиск инструмента в магазине и создание параметров для создания операции
+            NXOpen.CAM.Tool tempTool = (NXOpen.CAM.Tool)refPart.CAMSetup.CAMGroupCollection.FindObject(toolName);
+
+            NXOpen.CAM.MillingToolBuilder millingToolBuilder;
+            millingToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateMillToolBuilder(tempTool);
+            diam = millingToolBuilder.TlDiameterBuilder.Value;
+
+            millingToolBuilder.Destroy();
+
+            return diam;
         }
 
 
@@ -466,116 +495,120 @@ namespace TechDocNS.Model
         {
             FileStream file = new FileStream("c:\\booleanMap.txt", FileMode.Create);
             StreamWriter writer = new StreamWriter(file);
-            
-                foreach (int key in map.Keys)
-                {
-                        writer.WriteLine(map[key]);
-                    }
-                
-                writer.Close();
+
+            foreach (int key in map.Keys)
+            {
+                writer.WriteLine(map[key]);
             }
-      
+
+            writer.Close();
+        }
 
 
-        private int GetWCSNumber() { 
-        
-        Tag tagMCS;
-        ufs.Param.AskParamDefiner(Operation.Tag, UFConstants.UF_PARAM_MCS, out tagMCS);
-        NXOpen.CAM.CAMObject[] CAMObj = new NXOpen.CAM.CAMObject[1];
-        CAMObj[0] = Operation;
-       
-            
-        NXOpen.CAM.TurnOrientGeomBuilder turnOrientGeomBuilder 
-                  = NxSession.Part.CAMSetup.CAMGroupCollection.CreateTurnOrientGeomBuilder(CAMObj[0]);
 
-       int x = turnOrientGeomBuilder.FixtureOffsetBuilder.Value;
-       turnOrientGeomBuilder.Destroy();
+        private int GetWCSNumber()
+        {
 
-        return x;
+            Tag tagMCS;
+            ufs.Param.AskParamDefiner(Operation.Tag, UFConstants.UF_PARAM_MCS, out tagMCS);
+            NXOpen.CAM.CAMObject[] CAMObj = new NXOpen.CAM.CAMObject[1];
+            CAMObj[0] = Operation;
+
+
+            NXOpen.CAM.TurnOrientGeomBuilder turnOrientGeomBuilder
+                      = NxSession.Part.CAMSetup.CAMGroupCollection.CreateTurnOrientGeomBuilder(CAMObj[0]);
+
+            int x = turnOrientGeomBuilder.FixtureOffsetBuilder.Value;
+            turnOrientGeomBuilder.Destroy();
+
+            return x;
         }
 
         //метод определяет повернут ли инстр вокруг своей оси и угол ориентации державки
-      private double GetCutterAngleOrientAndFlipToolAroundHolder(){
+        private double GetCutterAngleOrientAndFlipToolAroundHolder()
+        {
 
-          double value = 0;
-          NXOpen.CAM.TurningOperationBuilder turningBuilder;
+            double value = 0;
+            NXOpen.CAM.TurningOperationBuilder turningBuilder;
 
-          if (ufs == null || Operation == null)
-              return value;
+            if (ufs == null || Operation == null)
+                return value;
 
-          switch (UF_TYPE_OPERATION_NAME)
-          {
-              case "RoughTurning":
-          
-                  turningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateRoughTurningBuilder(Operation);
-                  UF_PARAM_TL_FlipToolAroundHolder = turningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
-                  if (turningBuilder.ReorientToolHolder == true)
+            switch (UF_TYPE_OPERATION_NAME)
+            {
+                case "RoughTurning":
+
+                    turningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateRoughTurningBuilder(Operation);
+                    UF_PARAM_TL_FlipToolAroundHolder = turningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
+                    if (turningBuilder.ReorientToolHolder == true)
                         value = Math.Round(turningBuilder.ToolHolderAngle.Value, 3);
-                  
-                  turningBuilder.Destroy();
-                  return value;
 
-              case "FinishTurning":
-                  turningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateFinishTurningBuilder(Operation);
-                  UF_PARAM_TL_FlipToolAroundHolder = turningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
-                  if (turningBuilder.ReorientToolHolder == true)
+                    turningBuilder.Destroy();
+                    return value;
+
+                case "FinishTurning":
+                    turningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateFinishTurningBuilder(Operation);
+                    UF_PARAM_TL_FlipToolAroundHolder = turningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
+                    if (turningBuilder.ReorientToolHolder == true)
                         value = Math.Round(turningBuilder.ToolHolderAngle.Value, 3);
-                  turningBuilder.Destroy();
-                  return value;
-                                    
-              case "ThreadTurning":
-                  turningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateThreadTurningBuilder(Operation);
-                  UF_PARAM_TL_FlipToolAroundHolder = turningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
-                  if (turningBuilder.ReorientToolHolder == true)
-                         value = Math.Round(turningBuilder.ToolHolderAngle.Value, 3);
-                  turningBuilder.Destroy();
-                  return value;
+                    turningBuilder.Destroy();
+                    return value;
 
-              case "Operation":
-                  NXOpen.CAM.TeachmodeTurningBuilder teachmodeTurningBuilder;
-                  teachmodeTurningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateTeachmodeTurningBuilder(Operation);
-                  UF_PARAM_TL_FlipToolAroundHolder = teachmodeTurningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
-                  value = Math.Round(teachmodeTurningBuilder.ToolHolderAngle.Value, 3);
-                  teachmodeTurningBuilder.Destroy();
-                  return value;
+                case "ThreadTurning":
+                    turningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateThreadTurningBuilder(Operation);
+                    UF_PARAM_TL_FlipToolAroundHolder = turningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
+                    if (turningBuilder.ReorientToolHolder == true)
+                        value = Math.Round(turningBuilder.ToolHolderAngle.Value, 3);
+                    turningBuilder.Destroy();
+                    return value;
 
-              default:
-                  return value;
-          }
-      }
+                case "Operation":
+                    NXOpen.CAM.TeachmodeTurningBuilder teachmodeTurningBuilder;
+                    teachmodeTurningBuilder = NxSession.Part.CAMSetup.CAMOperationCollection.CreateTeachmodeTurningBuilder(Operation);
+                    UF_PARAM_TL_FlipToolAroundHolder = teachmodeTurningBuilder.FlipToolAroundHolder; // определяем разворот инструмента
+                    value = Math.Round(teachmodeTurningBuilder.ToolHolderAngle.Value, 3);
+                    teachmodeTurningBuilder.Destroy();
+                    return value;
+
+                default:
+                    return value;
+            }
+        }
 
 
-      private double GetTL_MaxReach() {
+        private double GetTL_MaxReach()
+        {
 
-          double value = -1;
-          NXOpen.CAM.ThreadToolBuilder threadToolBuilder = null;
-          NXOpen.CAM.TurnToolBuilder turnToolBuilder = null;
-          if (Tool == null)
-              return value;
-          
-              if (CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_THREAD)
-                 {
-                  threadToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateThreadToolBuilder(Tool);
-                  if (threadToolBuilder.MaxDepthToggle)
-                      return Math.Round(threadToolBuilder.MaxDepthBuilder.Value);
-                  }
+            double value = -1;
+            NXOpen.CAM.ThreadToolBuilder threadToolBuilder = null;
+            NXOpen.CAM.TurnToolBuilder turnToolBuilder = null;
+            if (Tool == null)
+                return value;
 
-              else { 
-                  turnToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateTurnToolBuilder(Tool);
-                  
-                  if (turnToolBuilder.MaxToolReachToggle)                                             // если галочка зоны досягаемости активна 
-                  return Math.Round(turnToolBuilder.MaxToolReachBuilder.Value);                       // получаем значение зоны досягаемости
-                   }
-              return value;
-      }
+            if (CUTTER_TYPE == UFConstants.UF_CUTTER_TYPE_THREAD)
+            {
+                threadToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateThreadToolBuilder(Tool);
+                if (threadToolBuilder.MaxDepthToggle)
+                    return Math.Round(threadToolBuilder.MaxDepthBuilder.Value);
+            }
+
+            else
+            {
+                turnToolBuilder = NxSession.Part.CAMSetup.CAMGroupCollection.CreateTurnToolBuilder(Tool);
+
+                if (turnToolBuilder.MaxToolReachToggle)                                             // если галочка зоны досягаемости активна 
+                    return Math.Round(turnToolBuilder.MaxToolReachBuilder.Value);                       // получаем значение зоны досягаемости
+            }
+            return value;
+        }
 
         private bool GetBoolParams(int paramIndex)
         {
-            if (ufs == null || RequiredParams == null || Operation == null || !RequiredParams.Contains(paramIndex)) 
+            if (ufs == null || RequiredParams == null || Operation == null || !RequiredParams.Contains(paramIndex))
                 return false;
-            
+
             bool value;
-                   
+
             ufs.Param.AskLogicalValue(Operation.Tag, paramIndex, out value);
             return value;
         }
@@ -586,9 +619,9 @@ namespace TechDocNS.Model
             if (ufs == null) return;
             int cnt;
             int[] indices;
-           
+
             ufs.Param.AskRequiredParams(Operation.Tag, out cnt, out indices);
-            RequiredParams = new List<int>(indices);  
+            RequiredParams = new List<int>(indices);
         }
 
 
@@ -598,7 +631,8 @@ namespace TechDocNS.Model
 
         }
 
-        public string newEncoder(string s) {
+        public string newEncoder(string s)
+        {
 
             byte[] data = Encoding.Default.GetBytes(s);
 
@@ -692,7 +726,7 @@ namespace TechDocNS.Model
 
         private string GetToolNumber()
         {
-            if (_operationGroup == null) 
+            if (_operationGroup == null)
                 return null;
 
             var machineName = _operationGroup.MachineName;
@@ -716,7 +750,7 @@ namespace TechDocNS.Model
                         : UF_PARAM_TL_NUMBER.ToString());
             }
             if ((machineName.Contains("CTX beta 1250 TC") || machineName.Contains("DMU 50 eco")
-                ||machineName.Contains("CTX 800 TC")) 
+                || machineName.Contains("CTX 800 TC"))
                 && !machineName.Contains("CTX beta 1250 TC 4A"))
             {
                 if (Tool != null) return Tool.Name;

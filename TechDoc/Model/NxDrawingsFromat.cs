@@ -30,7 +30,7 @@ namespace TechDocNS.Model
         public NxDrawingsFromat(string[] arr)
         {
             int n1, n2;
-            if (arr.Count() < 4 || !int.TryParse(arr[0], out n1) || !int.TryParse(arr[3], out n2)) 
+            if (arr.Count() < 4 || !int.TryParse(arr[0], out n1) || !int.TryParse(arr[3], out n2))
                 throw new Exception("Ошибка чтения файла с описанием форматок листов!");
 
             DrawingType = n1;
@@ -39,7 +39,7 @@ namespace TechDocNS.Model
             Template = arr[2].Trim();
         }
 
-        public bool IsFirstSheet { get { return SheetType == 1; }}
+        public bool IsFirstSheet { get { return SheetType == 1; } }
 
         public override string ToString()
         {
